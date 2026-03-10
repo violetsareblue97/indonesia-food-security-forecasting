@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PatchTST — Prediksi Kebutuhan Pangan Nasional</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:         #0a0f0a;
+    --bg2:        #0d140d;
+    --surface:    #111a11;
+    --border:     #1e2e1e;
+    --green:      #4ade80;
+    --green-dim:  #2d7a4f;
+    --text:       #e8f0e8;
+    --text-dim:   #6b8c6b;
+    --text-muted: #3d5c3d;
+    --amber:      #fbbf24;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    background:var(--bg); color:var(--text);
+    font-family:'DM Mono',monospace; font-size:14px;
+    line-height:1.7; overflow-x:hidden; cursor:none;
+  }
+  body::before {
+    content:''; position:fixed; inset:0; z-index:998;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events:none; opacity:0.3;
+  }
+  body::after {
+    content:''; position:fixed; inset:0; z-index:997;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.025) 2px,rgba(0,0,0,.025) 4px);
+    pointer-events:none;
+  }
+
+  /* CURSOR */
+  .cursor { position:fixed; top:0; left:0; z-index:9999; pointer-events:none; }
+  .cursor-ring {
+    width:36px; height:36px; border:1px solid rgba(74,222,128,.35);
+    border-radius:50%; transform:translate(-50%,-50%); transition:width .2s,height .2s;
+  }
+  .cursor-dot {
+    width:5px; height:5px; background:var(--green);
+    border-radius:50%; transform:translate(-50%,-50%);
+  }
+
+  /* NAV */
+  nav {
+    position:fixed; top:0; left:0; right:0; z-index:100;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:20px 56px; border-bottom:1px solid rgba(30,46,30,.5);
+    backdrop-filter:blur(14px); background:rgba(10,15,10,.75);
+  }
+  .nav-brand {
+    font-family:'Syne',sans-serif; font-weight:800; font-size:13px;
+    color:var(--green); letter-spacing:.15em; text-transform:uppercase;
+  }
+  .nav-links { display:flex; gap:36px; }
+  .nav-links a {
+    color:var(--text-muted); text-decoration:none; font-size:11px;
+    letter-spacing:.14em; text-transform:uppercase; transition:color .2s;
+  }
+  .nav-links a:hover { color:var(--green); }
+
+  /* TICKER */
+  .ticker {
+    margin-top:73px; background:rgba(74,222,128,.06);
+    border-bottom:1px solid rgba(74,222,128,.12);
+    overflow:hidden; padding:10px 0; white-space:nowrap;
+  }
+
+  /* HERO */
+  .hero {
+    min-height:100vh; display:grid; place-items:center;
+    padding:80px 50px; position:relative; overflow:hidden;
+  }
+  .hero-bg {
+    position:absolute; inset:0;
+    background:
+      radial-gradient(ellipse 55% 55% at 68% 44%,rgba(74,222,128,.06) 0%,transparent 70%),
+      radial-gradient(ellipse 35% 55% at 18% 72%,rgba(34,197,94,.04) 0%,transparent 60%);
+  }
+  .grid-bg {
+    position:absolute; inset:0;
+    background-image:linear-gradient(rgba(74,222,128,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(74,222,128,.035) 1px,transparent 1px);
+    background-size:56px 56px;
+    mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black,transparent);
+  }
+  .hero-inner {
+    position:relative; z-index:2; max-width:1000px; width:100%;
+    display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:center;
+  }
+  .hero-tag {
+    font-size:10px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--green); margin-bottom:28px; display:flex; align-items:center; gap:10px;
+    opacity:0; animation:up .8s ease .2s forwards;
+  }
+  .hero-tag::before { content:''; width:28px; height:1px; background:var(--green); }
+  .hero-title {
+    font-family:'Syne',sans-serif; font-size:clamp(38px,5.5vw,72px);
+    font-weight:800; line-height:.94; letter-spacing:-.03em;
+    opacity:0; animation:up .9s ease .35s forwards;
+  }
+  .hero-title em { font-family:'Instrument Serif',serif; font-style:italic; color:var(--green); }
+  .hero-sub {
+    margin-top:24px; color:var(--text-dim); font-size:13px; line-height:1.85;
+    opacity:0; animation:up .9s ease .5s forwards;
+  }
+  .hero-title er {font-family:'Syne',sans-serif; font-size:clamp(20px,5.5vw,50px);
+    font: weight 400; line-height:.94; letter-spacing:-.03em;
+    opacity:0; animation:up .9s ease .35s forwards;
+  }
+  .hero-cta {
+    display:flex; gap:14px; margin-top:40px;
+    opacity:0; animation:up .9s ease .65s forwards;
+  }
+  .btn {
+    padding:12px 24px; font-family:'DM Mono',monospace; font-size:12px;
+    letter-spacing:.06em; text-decoration:none; display:inline-flex;
+    align-items:center; gap:8px; cursor:none;
+    transition:transform .2s,box-shadow .2s,color .2s,border-color .2s;
+  }
+  .btn-fill { background:var(--green); color:#0a0f0a; border:none; }
+  .btn-fill:hover { transform:translateY(-2px); box-shadow:0 10px 28px rgba(74,222,128,.25); }
+  .btn-line { background:transparent; color:var(--text-dim); border:1px solid var(--border); }
+  .btn-line:hover { border-color:var(--green-dim); color:var(--text); }
+
+  /* Hero right */
+  .hero-right { opacity:0; animation:fadeIn 1s ease .8s forwards; }
+  .hero-stats { display:flex; flex-direction:column; gap:0; }
+  .stat-row {
+    padding:22px 0; border-bottom:1px solid var(--border);
+    display:flex; justify-content:space-between; align-items:baseline;
+  }
+  .stat-row:first-child { border-top:1px solid var(--border); }
+  .stat-val { font-family:'Syne',sans-serif; font-size:38px; font-weight:800; color:var(--green); line-height:1; }
+  .stat-label { font-size:11px; color:var(--text-muted); letter-spacing:.1em; }
+  .stat-note { font-size:10px; color:var(--text-muted); margin-top:3px; }
+  .hero-chart-wrap { margin-top:28px; }
+  .chart-micro-label { font-size:10px; color:var(--text-muted); letter-spacing:.1em; margin-bottom:10px; text-transform:uppercase; }
+
+  /* SECTIONS */
+  section { padding:88px 56px; }
+  .inner { max-width:1000px; margin:0 auto; }
+  .section-label {
+    font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--green);
+    display:flex; align-items:center; gap:12px; margin-bottom:12px;
+  }
+  .section-label::after { content:''; width:40px; height:1px; background:var(--green-dim); }
+  .section-title {
+    font-family:'Syne',sans-serif; font-size:clamp(26px,3.5vw,44px);
+    font-weight:700; line-height:1.08; margin-bottom:48px;
+  }
+
+  /* PROBLEM CARDS */
+ .problem-grid {
+    display:grid; grid-template-columns:1fr 1fr 1fr;
+    gap:1px; background:var(--border);
+  }
+  .problem-card {
+    background:var(--surface); padding:36px 28px;
+    transition:background .3s; position:relative; overflow:hidden;
+  }
+  .problem-card:hover { background:#121a12; }
+  .pc-index { font-family:'Syne',sans-serif; font-size:10px; color:var(--green); letter-spacing:.2em; margin-bottom:16px; }
+  .pc-title { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; margin-bottom:12px; line-height:1.3; }
+  .pc-text { font-size:12px; color:var(--text-dim); line-height:1.85; }
+
+
+  /* PIPELINE */
+  .pipeline-bg { background:var(--bg2); }
+  .pipeline-steps { display:grid; grid-template-columns:repeat(5,1fr); gap:1px; background:var(--border); margin-bottom:48px; }
+  .ps { background:var(--surface); padding:28px 22px; transition:background .25s; }
+  .ps:hover { background:rgba(74,222,128,.03); }
+  .ps-num { font-size:10px; letter-spacing:.18em; color:var(--green); margin-bottom:14px; font-weight:600; }
+  .ps-title { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; margin-bottom:10px; line-height:1.35; }
+  .ps-text { font-size:11px; color:var(--text-dim); line-height:1.75; }
+  .ps-tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:14px; }
+  .tag { font-size:9px; letter-spacing:.08em; border:1px solid var(--border); padding:2px 8px; color:var(--text-muted); border-radius:2px; }
+  .tag-g { border-color:var(--green-dim); color:var(--green); }
+
+  /* TERMINAL */
+  .terminal { background:#060c06; border:1px solid var(--border); max-width:580px; }
+  .t-bar { padding:9px 16px; background:#0d150d; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:7px; }
+  .t-dot { width:9px; height:9px; border-radius:50%; }
+  .t-bar-label { font-size:10px; color:var(--text-muted); margin-left:6px; letter-spacing:.08em; }
+  .t-body { padding:20px; font-size:11px; line-height:2; color:var(--text-dim); }
+  .tg { color:var(--green); } .ta { color:var(--amber); } .td { color:var(--text-muted); }
+
+  /* ACCURACY */
+  .accuracy-grid { align-items:start; }
+  .accuracy-note {
+    border:1px solid rgba(251,191,36,.25); background:rgba(251,191,36,.04);
+    padding:24px; margin-top:28px;
+  }
+  .accuracy-note-label { font-size:10px; letter-spacing:.18em; color:var(--amber); text-transform:uppercase; margin-bottom:10px; }
+  .accuracy-note-text { font-size:12px; color:var(--text-dim); line-height:1.85; }
+  .horizon-bars { display:flex; flex-direction:column; gap:20px; }
+  .h-bar-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .h-bar-label { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; }
+  .h-bar-val { font-size:11px; color:var(--text-dim); }
+  .h-bar-track { height:6px; background:var(--border); border-radius:2px; overflow:hidden; }
+  .h-bar-fill { height:100%; border-radius:2px; width:0; transition:width 1.4s cubic-bezier(.22,1,.36,1); }
+  .h-note { font-size:10px; color:var(--text-muted); margin-top:6px; }
+  .metrics-list { display:flex; flex-direction:column; gap:0; }
+  .metric-row {
+    padding:18px 0; border-bottom:1px solid var(--border);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .metric-row:first-child { border-top:1px solid var(--border); }
+  .metric-name { font-size:12px; color:var(--text-dim); }
+  .metric-sub { font-size:10px; color:var(--text-muted); margin-top:3px; }
+  .metric-val { font-family:'Syne',sans-serif; font-size:22px; font-weight:700; color:var(--green); }
+
+  /* STACK */
+  .stack-bg { background:var(--bg2); }
+  .stack-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); }
+  .stack-card { background:var(--surface); padding:28px 24px; transition:background .25s; }
+  .stack-card:hover { background:rgba(74,222,128,.03); }
+  .sc-name { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; margin-bottom:8px; }
+  .sc-desc { font-size:11px; color:var(--text-dim); line-height:1.7; }
+  .sc-ver { font-size:9px; color:var(--text-muted); margin-top:8px; letter-spacing:.08em; }
+
+
+  /* FOOTER */
+  footer {
+    border-top:1px solid var(--border); padding:36px 56px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .footer-brand { font-family:'Syne',sans-serif; font-size:12px; font-weight:700; color:var(--text-dim); }
+  .footer-meta { font-size:10px; color:var(--text-muted); text-align:right; line-height:1.7; }
+
+  /* DIVIDER */
+  .div { height:1px; background:linear-gradient(90deg,transparent,var(--border),transparent); }
+
+  /* REVEAL */
+  .reveal { opacity:0; transform:translateY(24px); transition:opacity 2s ease,transform 2s ease; }
+  .reveal.vis { opacity:1; transform:translateY(0); }
+
+  @keyframes up { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+  @media(max-width:860px){
+    nav{padding:16px 24px;} .nav-links{display:none;}
+    section{padding:60px 24px;} .hero{padding:80px 24px;}
+    .hero-inner{grid-template-columns:1fr;gap:48px;} .hero-right{display:none;}
+    .problem-grid{grid-template-columns:1fr;}
+    .pipeline-steps{grid-template-columns:1fr 1fr;}
+    .accuracy-grid{grid-template-columns:1fr;}
+    .stack-grid{grid-template-columns:repeat(2,1fr);}
+    footer{flex-direction:column;gap:12px;text-align:center;} .footer-meta{text-align:center;}
+  }
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cr">
+  <div class="cursor-ring" id="crRing"></div>
+  <div class="cursor-dot" id="crDot"></div>
+</div>
+
+<nav>
+  <div class="nav-brand">Prediksi Kebutuhan Pangan Indonesia</div>
+  <div class="nav-links">
+    <a href="#masalah">Masalah</a>
+    <a href="#pipeline">Pipeline</a>
+    <a href="#akurasi">Akurasi</a>
+    <a href="#stack">Stack</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="hero">
+  <div class="hero-bg"></div>
+  <div class="grid-bg"></div>
+  <div class="hero-inner">
+    <div>
+      <h1 class="hero-title">Prediksi<br /><em>Kebutuhan</em><br />Pangan<br/><er>2024-2026</er></h1>
+      <p class="hero-sub">Sistem prediksi berbasis <strong>Patch Time Series Transformer</strong> untuk memproyeksikan konsumsi pangan nasional Indonesia.</p>
+      <div class="hero-cta">
+  <a href="#masalah" class="btn btn-fill">Lihat Proyek</a>
+  <a href="https://github.com/violetsareblue97/indonesia-food-security-forecasting.git" class="btn btn-line" target="_blank">GitHub</a>
+</div>
+    </div>
+    <div class="hero-right">
+      <div class="hero-chart-wrap">
+        <svg viewBox="0 0 300 140" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%">
+          <defs>
+            <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#4ade80" stop-opacity=".25"/><stop offset="100%" stop-color="#4ade80" stop-opacity=".9"/></linearGradient>
+            <linearGradient id="lg2" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#4ade80" stop-opacity=".12"/><stop offset="100%" stop-color="#4ade80" stop-opacity="0"/></linearGradient>
+          </defs>
+          <line x1="0" y1="35" x2="300" y2="35" stroke="#1e2e1e" stroke-width="1"/>
+          <line x1="0" y1="70" x2="300" y2="70" stroke="#1e2e1e" stroke-width="1"/>
+          <line x1="0" y1="105" x2="300" y2="105" stroke="#1e2e1e" stroke-width="1"/>
+          <path d="M20,100 L90,88 L160,78 L160,130 L20,130Z" fill="url(#lg2)"/>
+          <path d="M20,100 L90,88 L160,78" stroke="url(#lg1)" stroke-width="2" stroke-linecap="round"/>
+          <line x1="160" y1="10" x2="160" y2="130" stroke="#4ade80" stroke-width="1" stroke-dasharray="4,4" opacity=".25"/>
+          <path d="M160,78 L210,68 L260,57 L290,48" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="5,4" stroke-linecap="round" opacity=".75"/>
+          <path d="M160,78 L210,68 L260,57 L290,48 L290,130 L160,130Z" fill="#fbbf24" fill-opacity=".04"/>
+          <circle cx="20" cy="100" r="3" fill="#4ade80"/>
+          <circle cx="90" cy="88" r="3" fill="#4ade80"/>
+          <circle cx="160" cy="78" r="3" fill="#4ade80"/>
+          <circle cx="210" cy="68" r="3" fill="#fbbf24" opacity=".7"/>
+          <circle cx="260" cy="57" r="3" fill="#fbbf24" opacity=".7"/>
+          <circle cx="290" cy="48" r="3.5" fill="#fbbf24" opacity=".85"/>
+          <text x="14" y="128" fill="#3d5c3d" font-size="8" font-family="monospace">2021</text>
+          <text x="84" y="128" fill="#3d5c3d" font-size="8" font-family="monospace">2022</text>
+          <text x="150" y="128" fill="#3d5c3d" font-size="8" font-family="monospace">2023</text>
+          <text x="200" y="128" fill="#3d5c3d" font-size="8" font-family="monospace">2024</text>
+          <text x="250" y="128" fill="#3d5c3d" font-size="8" font-family="monospace">2025</text>
+          <text x="278" y="128" fill="#fbbf24" font-size="8" font-family="monospace">2026</text>
+          <text x="164" y="20" fill="#4ade80" font-size="8" font-family="monospace" opacity=".6">proyeksi →</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="div"></div>
+
+<!-- MASALAH -->
+<section id="masalah">
+  <div class="inner">
+    <div class="section-label reveal">Latar Belakang</div>
+    <h2 class="section-title reveal">Masalah yang<br/>Diselesaikan</h2>
+    <div class="problem-grid reveal">
+      <div class="problem-card">
+        <div class="pc-index">01. Isu</div>
+        <div class="pc-title">Pengelolaan Stok Pangan Indonesia yang Kurang Proaktif</div>
+        <div class="pc-text">Ketergantungan pada metode konvensional dalam manajemen stok pangan nasional membuat antisipasi kebutuhan di masa depan menjadi tidak akurat. Hal ini mengakibatkan ketidakseimbangan pasokan antarwilayah, di mana surplus pangan sering kali tidak tersalurkan ke daerah yang justru mengalami kelangkaan.</div>
+      </div>
+      <div class="problem-card">
+        <div class="pc-index">02. Solusi</div>
+        <div class="pc-title">Solusi Menggunakan Strategi yang Proaktif</div>
+        <div class="pc-text">Selama ini, kebijakan pangan terjebak dalam pola reaktif, yaitu hanya merespons saat kelangkaan atau lonjakan harga sudah terjadi. Proyek ini memutar balik situasi tersebut, dengan menghadirkan sistem yang proaktif. Dengan prediksi akurat, pemerintah kini bisa bertindak lebih awal dan mengamankan stok pangan jauh sebelum krisis melanda.</div>
+      </div>
+      <div class="problem-card">
+        <div class="pc-index">03. Arsitektur Model</div>
+        <div class="pc-title">PatchTST untuk Data Deret Waktu Pendek</div>
+        <div class="pc-text">PatchTST membagi deret waktu menjadi segmen (patches) sebagai token Transformer. Dengan RevIN normalization dan channel-independent design, model bekerja efektif bahkan pada data historis yang sangat terbatas. Dataset yang digunakan pada project ini adalah data pangan nasional 2021-2023, dengan model ini hasil prediksi tetap memiliki akurasi yang tinggi</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="div"></div>
+
+<!-- PIPELINE -->
+<section id="pipeline" class="pipeline-bg">
+  <div class="inner">
+    <div class="section-label reveal">Alur Kerja Teknis</div>
+    <h2 class="section-title reveal">Pipeline Model</h2>
+    <div class="pipeline-steps reveal">
+
+      <div class="ps">
+        <div class="ps-num">01</div>
+        <div class="ps-title">Ingest dan Pembersihan Data</div>
+        <div class="ps-text">Ambil CSV dari API Badan Pangan. Tangani nilai kosong, duplikat, nama kolom tidak konsisten, dan konversi tipe data numerik.</div>
+        <div class="ps-tags">
+          <span class="tag">pandas</span>
+          <span class="tag">dropna</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-num">02</div>
+        <div class="ps-title">EDA dan Visualisasi</div>
+        <div class="ps-text">Profil statistik, hapus nilai negatif, visualisasi tren konsumsi tahunan, dan identifikasi 10 komoditas dengan konsumsi tertinggi.</div>
+        <div class="ps-tags">
+          <span class="tag">seaborn</span>
+          <span class="tag">matplotlib</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-num">03</div>
+        <div class="ps-title">Normalisasi dan Format</div>
+        <div class="ps-text">Normalisasi dengan StandardScaler. Buat unique_id (Provinsi_Komoditas) dan kolom ds (datetime) sesuai format NeuralForecast.</div>
+        <div class="ps-tags">
+          <span class="tag">StandardScaler</span>
+          <span class="tag">NeuralForecast</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-num">04</div>
+        <div class="ps-title">Pelatihan PatchTST</div>
+        <div class="ps-text">h=3, input_size=1, max_steps=50, revin=True, freq='YE'. Training via PyTorch Lightning dengan logging MAE setiap langkah.</div>
+        <div class="ps-tags">
+          <span class="tag">PatchTST</span>
+          <span class="tag">PyTorch</span>
+        </div>
+      </div>
+
+      <div class="ps">
+        <div class="ps-num">05</div>
+        <div class="ps-title">Prediksi dan Deploy</div>
+        <div class="ps-text">nf.predict() menghasilkan proyeksi 2024–2026. Dashboard Gradio dengan dropdown provinsi dan komoditas untuk simulasi kebijakan.</div>
+        <div class="ps-tags">
+          <span class="tag">Gradio</span>
+          <span class="tag">nf.predict</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="div"></div>
+
+<!-- AKURASI -->
+<section id="akurasi">
+  <div class="inner">
+    <div class="section-label reveal">Evaluasi Model</div>
+    <h2 class="section-title reveal">Akurasi Model<br />dari Tahun ke Tahun</h2>
+    <div class="accuracy-grid reveal">
+
+      <div>
+        <p style="font-size:13px;color:var(--text-dim);line-height:1.85;margin-bottom:28px;">
+          Data yang dipakai mencakup <strong>2021–2023</strong>. Dari titik terakhir (2023), model memproyeksikan tiga tahun ke depan: <strong>2024, 2025, dan 2026</strong>.
+        </p>
+        <p style="font-size:13px;color:var(--text-dim);line-height:1.85;margin-bottom:32px;">
+          Akurasi berkurang seiring bertambah tahun dikarenakan jauh dengan data terakhir. Model ini cocok untuk perencanaan, sementara ini bukan untuk keputusan presisi.
+        </p>
+
+        <div class="horizon-bars">
+          <div>
+            <div class="h-bar-header">
+              <div class="h-bar-label">2024 (h=1)</div>
+              <div class="h-bar-val">Kepercayaan Tinggi</div>
+            </div>
+            <div class="h-bar-track"><div class="h-bar-fill" data-w="88" style="background:var(--green)"></div></div>
+          </div>
+          <div>
+            <div class="h-bar-header">
+              <div class="h-bar-label">2025 (h=2)</div>
+              <div class="h-bar-val">Kepercayaan Menengah</div>
+            </div>
+            <div class="h-bar-track"><div class="h-bar-fill" data-w="60" style="background:#86efac"></div></div>
+          </div>
+          <div>
+            <div class="h-bar-header">
+              <div class="h-bar-label">2026 (h=3)</div>
+              <div class="h-bar-val">Kepercayaan Menengah</div>
+            </div>
+            <div class="h-bar-track"><div class="h-bar-fill" data-w="37" style="background:var(--amber)"></div></div>
+          </div>
+        </div>
+
+      <div>
+        <div class="metrics-list" style="margin-bottom:32px;">
+          <div class="metric-row">
+            <div><div class="metric-name">R2 Score</div><div class="metric-sub">Seberapa baik model menjelaskan data</div></div>
+            <div class="metric-val">87.34%</div>
+          </div>
+          <div class="metric-row">
+            <div><div class="metric-name">MAE (Normalized)</div><div class="metric-sub">Rata-rata kesalahan prediksi</div></div>
+            <div class="metric-val">0.0458</div>
+          </div>
+          <div class="metric-row">
+            <div><div class="metric-name">Data Historis</div><div class="metric-sub">Per kombinasi Provinsi-Komoditas</div></div>
+            <div class="metric-val">3 thn</div>
+          </div>
+          <div class="metric-row">
+            <div><div class="metric-name">Horizon Prediksi</div><div class="metric-sub">Langkah yang diproyeksikan</div></div>
+            <div class="metric-val">3 thn</div>
+          </div>
+        </div>
+
+        <div style="border:1px solid var(--border);padding:24px;background:var(--surface);">
+          <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px;">Grafik Proyeksi Konsumsi</div>
+          <div style="font-size:10px;color:var(--text-dim);margin-bottom:18px;">kg/kapita/tahun — historis dan proyeksi PatchTST</div>
+          <div style="display:flex;gap:16px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-dim);"><div style="width:18px;height:2px;background:var(--green)"></div>Historis</div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-dim);"><div style="width:18px;height:2px;background:var(--amber);opacity:.7"></div>Proyeksi</div>
+          </div>
+          <canvas id="fc" height="130"></canvas>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="div"></div>
+
+<!-- STACK -->
+<section id="stack" class="stack-bg">
+  <div class="inner">
+    <div class="section-label reveal">Teknologi</div>
+    <h2 class="section-title reveal">Tech Stack</h2>
+    <div class="stack-grid reveal">
+      <div class="stack-card">
+        <div class="sc-name">Python</div>
+        <div class="sc-desc">Bahasa utama untuk seluruh alur — ingest data, EDA, pelatihan model, hingga deployment.</div>
+      </div>
+      <div class="stack-card">
+        <div class="sc-name">PatchTST</div>
+        <div class="sc-desc">Transformer berbasis patch untuk deret waktu. Tokenisasi subseries dengan mekanisme self-attention dan RevIN normalization.</div>
+      </div>
+      <div class="stack-card">
+        <div class="sc-name">NeuralForecast</div>
+        <div class="sc-desc">Framework Nixtla untuk neural time series. Menangani multi-series training, format data, dan frekuensi tahunan.</div>
+      </div>
+      <div class="stack-card">
+        <div class="sc-name">PyTorch Lightning</div>
+        <div class="sc-desc">Berjalan otomatis sebagai backend NeuralForecast. Mengatur training loop, logging MAE, dan eksekusi di CPU/GPU.</div>
+      </div>
+      <div class="stack-card">
+        <div class="sc-name">Pandas</div>
+        <div class="sc-desc">Manipulasi data: groupby, agregasi, rename kolom, konversi tipe data, dan format ulang untuk NeuralForecast.</div>
+      </div>
+      <div class="stack-card">
+        <div class="sc-name">NumPy</div>
+        <div class="sc-desc">Operasi numerik array, digunakan bersama Pandas untuk transformasi dan kalkulasi data sebelum masuk model.</div>
+      </div>
+      <div class="stack-card">
+        <div class="sc-name">Scikit-learn</div>
+        <div class="sc-desc">StandardScaler untuk normalisasi variabel target — memastikan skala data stabil sebelum dan sesudah training.</div>
+      </div>
+      <div class="stack-card">
+        <div class="sc-name">Seaborn / Matplotlib</div>
+        <div class="sc-desc">Visualisasi EDA: grafik tren konsumsi tahunan, bar chart komoditas tertinggi, dan profil distribusi data.</div>      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-brand">Created by: Zefanya Violetta</div>
+  <div class="footer-meta">
+    Check my website<br />
+    <a href="zefanyavioletta.vercel.app">GitHub Repository</a>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+  // Cursor
+  const ring=document.getElementById('crRing'),dot=document.getElementById('crDot');
+  let mx=0,my=0,rx=0,ry=0;
+  document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;});
+  (function t(){rx+=(mx-rx)*.14;ry+=(my-ry)*.14;dot.style.left=mx+'px';dot.style.top=my+'px';ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(t);})();
+  document.querySelectorAll('a,button').forEach(el=>{
+    el.addEventListener('mouseenter',()=>{ring.style.width='52px';ring.style.height='52px';});
+    el.addEventListener('mouseleave',()=>{ring.style.width='36px';ring.style.height='36px';});
+  });
+
+  // Reveal
+  const obs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('vis');}),{threshold:.12});
+  document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+
+  // Horizon bars
+  const barObs=new IntersectionObserver(es=>es.forEach(e=>{
+    if(e.isIntersecting) e.target.querySelectorAll('.h-bar-fill').forEach(b=>{setTimeout(()=>{b.style.width=b.dataset.w+'%';},300);});
+  }),{threshold:.3});
+  document.querySelectorAll('.horizon-bars').forEach(el=>barObs.observe(el));
+
+  // Chart
+  new Chart(document.getElementById('fc').getContext('2d'),{
+    type:'line',
+    data:{
+      labels:['2021','2022','2023','2024*','2025*','2026*'],
+      datasets:[
+        {
+          label:'Historis',
+          data:[16.62,16.71,16.79,null,null,null],
+          borderColor:'#4ade80',backgroundColor:'rgba(74,222,128,.07)',
+          borderWidth:2,pointRadius:4,pointBackgroundColor:'#4ade80',
+          fill:true,tension:.3
+        },
+        {
+          label:'Proyeksi',
+          data:[null,null,16.79,16.91,17.05,17.20],
+          borderColor:'#fbbf24',backgroundColor:'rgba(251,191,36,.04)',
+          borderWidth:2,pointRadius:4,pointBackgroundColor:'#fbbf24',
+          borderDash:[5,4],fill:true,tension:.3
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#0d140d',borderColor:'#1e2e1e',borderWidth:1,
+          titleColor:'#4ade80',bodyColor:'#6b8c6b',
+          titleFont:{family:'DM Mono'},bodyFont:{family:'DM Mono',size:11}
+        }
+      },
+      scales:{
+        x:{grid:{color:'#1e2e1e'},ticks:{color:'#6b8c6b',font:{family:'DM Mono',size:10}}},
+        y:{grid:{color:'#1e2e1e'},ticks:{color:'#6b8c6b',font:{family:'DM Mono',size:10}},min:16.3,max:17.5}
+      }
+    }
+  });
+</script>
+</body>
+</html>
